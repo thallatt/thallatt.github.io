@@ -1,12 +1,21 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import TimeLineElement from "../components/cv/TimeLine.astro";
+import { Image } from "astro:assets";
 ---
 
 <BaseLayout title="Research" sideBarActiveItemID="research">
   <div class="mb-5">
     <div class="text-3xl w-full font-bold">Planet Formation in the Milky Way's Thick Disk</div>
   </div>
+
+<Image
+  src={"/helmi.png"}
+  width={750}
+  height={422}
+  format="png"
+  alt={"Planet Formation in the Milky Way's Thick Disk"}
+/>
 
   <div class="mb-10 text-justify">
     Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna
