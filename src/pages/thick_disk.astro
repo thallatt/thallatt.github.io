@@ -9,10 +9,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
   
   <body> 
     <center> 
-        <image src= "/thick_disk.gif" 
-                width="1000"
-                height="1200"> 
-        </image> 
+    <Image
+      src={"/thick_disk.gif"}
+      width={350}
+      height={170}
+      format="png"
+      alt={"Planet Formation in the Milky Way's Thick Disk"}
+      style={"diplay:inline-block;"}
+      align="left"
+    />
     </center> 
   </body>
 </BaseLayout>
