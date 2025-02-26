@@ -1,4 +1,4 @@
-# Tim Hallatt | Astrophysics PhD Student @ McGill University
+# Tim Hallatt | Astrophysicist @ MIT
 
 Astrofy is a free and open-source template for your Personal Portfolio Website built with Astro and TailwindCSS. Create in minutes a website with a Blog, CV, Project Section, Store, and RSS Feed.
 
