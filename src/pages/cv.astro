@@ -1,19 +1,146 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import TimeLineElement from "../components/cv/TimeLine.astro";
+
+const pdfUrl = "/CV.pdf"; // file at public/CV.pdf (GitHub Pages is case-sensitive)
 ---
 
 <BaseLayout title="Resume" sideBarActiveItemID="cv">
-  <div class="mb-5">
-    <div class="text-3xl w-full font-bold">CV</div>
+  <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <div class="text-3xl font-bold">CV</div>
+    <div class="flex gap-4 text-sm">
+      <a class="underline" href={pdfUrl} target="_blank" rel="noopener">Open PDF ↗</a>
+      <a class="underline" href={pdfUrl} download>Download</a>
+    </div>
   </div>
-  
-  <body> 
-    <center> 
-        <iframe src= "/CV.pdf" 
-                width="1000"
-                height="1200"> 
-        </iframe> 
-    </center> 
-  </body>
+
+  <div id="cv-viewer" data-src={pdfUrl}>
+    <p class="cv-status">Loading CV…</p>
+  </div>
+
+  <noscript><p><a href={pdfUrl}>View my CV (PDF)</a></p></noscript>
 </BaseLayout>
+
+<script is:inline type="module">
+  // "Legacy" pdf.js build, so older iPhones and Android phones are supported too
+  const PDFJS = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/";
+  const MAX_PIXELS = 4_000_000; // max image size per page; keeps iOS from running out of memory
+
+  async function initCV() {
+    const el = document.getElementById("cv-viewer");
+    if (!el || el.dataset.ready) return;
+    el.dataset.ready = "1";
+    const src = el.dataset.src;
+
+    // Desktop: keep the browser's built-in PDF viewer (search, links, zoom), now fitted to the page width
+    const isDesktop = window.matchMedia("(min-width: 1024px) and (pointer: fine)").matches;
+    if (isDesktop) {
+      const frame = document.createElement("iframe");
+      frame.src = src;
+      frame.title = "CV";
+      frame.className = "cv-frame";
+      el.replaceChildren(frame);
+      return;
+    }
+
+    // Phones and tablets: draw each page as an image that fits the screen width
+    try {
+      const pdfjsLib = await import(PDFJS + "pdf.min.mjs");
+      pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.mjs";
+      const pdf = await pdfjsLib.getDocument(src).promise;
+
+      const canvas = document.createElement("canvas"); // one drawing surface, reused for every page
+      const ctx = canvas.getContext("2d");
+      let urls = [];
+      let lastWidth = 0, running = false, pending = false;
+
+      async function render() {
+        if (running) { pending = true; return; }
+        const width = el.clientWidth;
+        // Only redraw when the WIDTH changes. iOS counts the address bar
+        // showing or hiding as a resize, and redrawing then makes scrolling jump.
+        if (!width || width === lastWidth) return;
+        running = true;
+        lastWidth = width;
+
+        try {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const imgs = [], newUrls = [];
+
+          for (let n = 1; n <= pdf.numPages; n++) {
+            const page = await pdf.getPage(n);
+            const base = page.getViewport({ scale: 1 });
+            let scale = (width / base.width) * dpr;
+            const px = base.width * base.height * scale * scale;
+            if (px > MAX_PIXELS) scale *= Math.sqrt(MAX_PIXELS / px);
+
+            const vp = page.getViewport({ scale });
+            canvas.width = Math.floor(vp.width);
+            canvas.height = Math.floor(vp.height);
+            await page.render({ canvasContext: ctx, viewport: vp }).promise;
+            page.cleanup();
+
+            // Turn the drawing into a normal image so only one canvas uses memory at a time
+            const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+            const url = URL.createObjectURL(blob);
+            newUrls.push(url);
+
+            const img = new Image();
+            img.src = url;
+            img.alt = `CV page ${n}`;
+            img.className = "cv-page";
+            imgs.push(img);
+          }
+
+          el.replaceChildren(...imgs);
+          urls.forEach((u) => URL.revokeObjectURL(u));
+          urls = newUrls;
+          canvas.width = canvas.height = 0; // free canvas memory
+        } finally {
+          running = false;
+        }
+        if (pending) { pending = false; render(); }
+      }
+
+      await render();
+
+      let t;
+      window.addEventListener("resize", () => {
+        clearTimeout(t);
+        t = setTimeout(render, 250);
+      });
+    } catch (err) {
+      console.error(err);
+      el.innerHTML = `<p class="cv-status">Couldn't display the CV here. <a class="underline" href="${src}">Open the PDF</a>.</p>`;
+    }
+  }
+
+  initCV();
+  // Also run after page changes, in case your theme uses Astro view transitions
+  document.addEventListener("astro:page-load", initCV);
+</script>
+
+<style>
+  #cv-viewer {
+    width: 100%;
+  }
+  /* The images and iframe are created by the script, so these rules need :global() */
+  #cv-viewer :global(.cv-page) {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 0 0 12px;
+    background: #fff;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+  }
+  #cv-viewer :global(.cv-frame) {
+    display: block;
+    width: 100%;
+    aspect-ratio: 8.5 / 11; /* one full Letter page visible at a time */
+    border: 0;
+  }
+  #cv-viewer :global(.cv-status) {
+    text-align: center;
+    opacity: 0.7;
+    padding: 2rem 0;
+  }
+</style>
